@@ -135,13 +135,18 @@ Doit contenir :
 
 - rssItem
 - summary
-- mainCategory
-- tags
+- translatedTitle
 - relevanceScore
 - businessScore
 - learningScore
 - contentScore
 - finalScore
+- userRelevanceScore
+- userBusinessScore
+- userLearningScore
+- userContentScore
+- userFinalScore
+- userScoresUpdatedAt
 - reasoning
 - modelUsed
 - createdAt
@@ -365,7 +370,7 @@ Avant de coder une grosse fonctionnalité :
 3. Identifier la phase en cours.
 4. Proposer une implémentation simple.
 5. Modifier uniquement ce qui est nécessaire.
-6. Mettre à jour la documentation si besoin.
+6. Mettre à jour TODO, README et la documentation si besoin.
 
 ## Priorités
 

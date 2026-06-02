@@ -1,0 +1,61 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Prompts IA | AgentWatch{% endblock %}
+
+{% block body %}
+    <main class="relative overflow-hidden">
+        <div class="absolute inset-x-0 top-0 -z-10 h-72 bg-gradient-to-br from-amber-200 via-orange-100 to-emerald-100 blur-3xl"></div>
+
+        <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-10 lg:px-10">
+            <header class="mb-8 rounded-[2rem] border border-black/5 bg-white/80 p-8 shadow-[0_20px_80px_rgba(17,24,39,0.08)] backdrop-blur">
+                <a href="{{ path('app_dashboard') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-ember">
+                    &larr; Retour au dashboard
+                </a>
+                <h1 class="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">Prompts IA</h1>
+                <p class="mt-2 text-base leading-7 text-ink/70">
+                    Les workflows n8n recuperent ces prompts au runtime via <code class="rounded bg-ink/5 px-1.5 py-0.5 text-sm">GET /internal/prompts</code>.
+                    Modifier ici prend effet au prochain run, sans reimport du workflow.
+                </p>
+            </header>
+
+            {% for label, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="mb-4 rounded-2xl border border-{{ label == 'success' ? 'moss' : 'red-500' }}/30 bg-{{ label == 'success' ? 'moss' : 'red-500' }}/10 px-5 py-3 text-sm font-semibold text-{{ label == 'success' ? 'moss' : 'red-700' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endfor %}
+
+            <section class="space-y-4">
+                {% for prompt in prompts %}
+                    <article class="rounded-[2rem] border border-black/5 bg-white p-6 shadow-[0_18px_60px_rgba(17,24,39,0.06)]">
+                        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="min-w-0 flex-1 space-y-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h2 class="text-lg font-bold text-ink">{{ prompt.name }}</h2>
+                                    <code class="rounded-full bg-ink/5 px-2.5 py-0.5 font-mono text-xs text-ink/60">{{ prompt.promptKey }}</code>
+                                </div>
+                                {% if prompt.description %}
+                                    <p class="text-sm leading-6 text-ink/65">{{ prompt.description }}</p>
+                                {% endif %}
+                                <p class="text-xs text-ink/40">Dernier changement : {{ prompt.updatedAt|date('d/m/Y H:i') }}</p>
+                            </div>
+                            <a
+                                href="{{ path('app_prompt_edit', {id: prompt.id}) }}"
+                                class="inline-flex shrink-0 items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-sand transition hover:bg-ink/90"
+                            >
+                                Editer
+                            </a>
+                        </div>
+                        <pre class="mt-4 max-h-48 overflow-auto rounded-2xl bg-sand p-4 font-mono text-xs leading-5 text-ink/75">{{ prompt.content }}</pre>
+                    </article>
+                {% else %}
+                    <div class="rounded-[2rem] border border-dashed border-ink/15 bg-sand p-8 text-center">
+                        <p class="text-base font-semibold">Aucun prompt en base.</p>
+                        <p class="mt-2 text-sm text-ink/60">Charge les fixtures : <code>php bin/console doctrine:fixtures:load --append --group=prompts</code></p>
+                    </div>
+                {% endfor %}
+            </section>
+        </div>
+    </main>
+{% endblock %}

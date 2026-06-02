@@ -1,0 +1,45 @@
+{% form_theme form 'rss_source/_form_theme.html.twig' %}
+
+{{ form_start(form, {attr: {class: 'space-y-6'}}) }}
+    <div class="grid gap-6 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+            {{ form_row(form.name) }}
+        </div>
+        <div>
+            {{ form_row(form.type) }}
+        </div>
+        <div>
+            {{ form_row(form.priority) }}
+        </div>
+        <div class="sm:col-span-2">
+            {{ form_row(form.feedUrl) }}
+        </div>
+        <div class="sm:col-span-2">
+            {{ form_row(form.websiteUrl) }}
+        </div>
+        <div class="sm:col-span-2">
+            {{ form_row(form.tags) }}
+        </div>
+        <div class="sm:col-span-2">
+            {{ form_row(form.scrapeConfig) }}
+        </div>
+        <div class="sm:col-span-2">
+            <label class="flex items-start gap-3 rounded-2xl border border-black/5 bg-sand px-4 py-3">
+                {{ form_widget(form.isActive, {attr: {class: 'mt-1 h-4 w-4 rounded border-ink/30 text-ember focus:ring-ember'}}) }}
+                <span class="text-sm leading-6">
+                    <span class="font-semibold">{{ form_label(form.isActive, null, {label_attr: {class: 'font-semibold'}}) }}</span>
+                    <span class="block text-ink/60">Une source desactivee n est pas collectee par n8n.</span>
+                </span>
+            </label>
+        </div>
+    </div>
+
+    <div class="flex flex-col-reverse gap-3 border-t border-black/5 pt-6 sm:flex-row sm:justify-end">
+        <a href="{{ path('app_rss_source_index') }}" class="inline-flex items-center justify-center rounded-full border border-ink/15 px-5 py-2.5 text-sm font-semibold text-ink/80 transition hover:bg-ink/5">
+            Annuler
+        </a>
+        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-sand transition hover:bg-ink/90">
+            {{ submit_label }}
+        </button>
+    </div>
+{{ form_end(form) }}

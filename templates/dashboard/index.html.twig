@@ -1,0 +1,145 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dashboard | AgentWatch{% endblock %}
+
+{% block body %}
+    <main class="relative overflow-hidden">
+        <div class="absolute inset-x-0 top-0 -z-10 h-72 bg-gradient-to-br from-amber-200 via-orange-100 to-emerald-100 blur-3xl"></div>
+
+        <div class="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 lg:px-10">
+            <header class="mb-10 rounded-[2rem] border border-black/5 bg-white/80 p-6 shadow-[0_20px_80px_rgba(17,24,39,0.08)] backdrop-blur">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink text-sm font-extrabold text-sand">AW</div>
+                        <div class="space-y-0.5">
+                            <h1 class="text-xl font-extrabold tracking-tight">Dashboard</h1>
+                            <p class="text-sm text-ink/60">Veille RSS · Import n8n · Analyse IA</p>
+                        </div>
+                    </div>
+
+                    <nav class="flex flex-wrap gap-2">
+                        <a href="{{ path('app_article_index') }}" class="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-sand transition hover:bg-ink/90">
+                            Articles
+                        </a>
+                        <a href="{{ path('app_rss_source_index') }}" class="inline-flex items-center rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5">
+                            Sources
+                        </a>
+                        <a href="{{ path('app_tag_index') }}" class="inline-flex items-center rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5">
+                            Tags
+                        </a>
+                        <a href="{{ path('app_prompt_index') }}" class="inline-flex items-center rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5">
+                            Prompts
+                        </a>
+                    </nav>
+                </div>
+            </header>
+
+            <section class="rounded-[2rem] border border-black/5 bg-white p-8 shadow-[0_18px_60px_rgba(17,24,39,0.06)]">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-ember">Veille</p>
+                        <h2 class="mt-2 text-2xl font-bold">Derniers articles analyses par l'IA</h2>
+                        <p class="mt-1 text-sm text-ink/60">Tries du plus recent au plus ancien. Resumes en francais.</p>
+                    </div>
+                    <span class="inline-flex w-fit items-center rounded-full bg-ink/5 px-4 py-2 text-sm font-semibold text-ink">
+                        {{ analyzedItems|length }} article{{ analyzedItems|length > 1 ? 's' : '' }}
+                    </span>
+                </div>
+
+                {% if analyzedItems is empty %}
+                    <div class="mt-8 rounded-2xl border border-dashed border-ink/15 bg-sand px-6 py-6">
+                        <p class="text-base font-semibold">Aucun article analyse pour le moment.</p>
+                        <p class="mt-2 text-sm text-ink/60">
+                            Lance les workflows <span class="font-semibold">RSS Collect</span> puis <span class="font-semibold">Article Analysis</span> dans n8n.
+                        </p>
+                        <a
+                            href="http://127.0.0.1:5678/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="mt-4 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-sand transition hover:bg-ink/90"
+                        >
+                            Ouvrir n8n &rarr;
+                        </a>
+                    </div>
+                {% else %}
+                    <ul class="mt-8 space-y-4">
+                        {% for item in analyzedItems %}
+                            {% set analysis = item.analysis %}
+                            <li class="group rounded-2xl border border-black/5 bg-white px-6 py-5 transition hover:border-ink/15">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                                    <div class="min-w-0 flex-1 space-y-3">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <a
+                                                href="{{ path('app_article_show', {id: item.id}) }}"
+                                                class="text-base font-semibold leading-7 text-ink group-hover:text-ember"
+                                            >
+                                                {{ analysis.translatedTitle ?: item.title }}
+                                            </a>
+                                            {% if analysis.hasUserScores %}
+                                                <span class="rounded-full bg-moss/10 px-2.5 py-0.5 text-xs font-semibold text-moss" title="Scores corriges manuellement">corrige</span>
+                                            {% endif %}
+                                        </div>
+
+                                        <p class="text-sm leading-6 text-ink/80">{{ analysis.summary }}</p>
+
+                                        {% if item.tags|length > 0 %}
+                                            <div class="flex flex-wrap gap-1.5">
+                                                {% for tag in item.tags %}
+                                                    <span class="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 text-xs font-medium text-ink/70">{{ tag.name }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+
+                                        <p class="text-xs text-ink/50">
+                                            <span class="font-semibold text-ink/70">{{ item.source.name }}</span>
+                                            {% if item.publishedAt %}
+                                                · {{ item.publishedAt|date('d/m/Y') }}
+                                            {% endif %}
+                                        </p>
+                                    </div>
+
+                                    <div class="flex shrink-0 flex-col items-end gap-2">
+                                        <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-moss text-lg font-bold text-sand">{{ analysis.effectiveFinalScore }}</span>
+                                        <a
+                                            href="{{ path('app_article_show', {id: item.id}) }}"
+                                            class="text-xs font-semibold text-ember hover:underline"
+                                        >Voir &rarr;</a>
+                                    </div>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                 {% endif %}
+            </section>
+
+            <footer class="mt-10 rounded-[2rem] border border-black/5 bg-white/80 p-6 shadow-[0_18px_60px_rgba(17,24,39,0.06)] backdrop-blur">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-ember">Services locaux</p>
+                        <p class="mt-1 text-sm text-ink/60">Stack Docker (ports exposes sur localhost).</p>
+                    </div>
+                    <a
+                        href="http://127.0.0.1:5678/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex w-fit items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-sand transition hover:bg-ink/90"
+                    >
+                        Ouvrir n8n &rarr;
+                    </a>
+                </div>
+
+                <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {% for service in services %}
+                        <li class="rounded-2xl border border-black/5 bg-white px-4 py-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-base font-semibold">{{ service.name }}</span>
+                                <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">{{ service.status }}</span>
+                            </div>
+                            <p class="mt-2 text-sm text-ink/60">Port local {{ service.port }}</p>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </footer>
+        </div>
+    </main>
+{% endblock %}

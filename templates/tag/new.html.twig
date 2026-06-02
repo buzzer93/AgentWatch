@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nouveau tag | AgentWatch{% endblock %}
+
+{% block body %}
+    <main class="relative overflow-hidden">
+        <div class="absolute inset-x-0 top-0 -z-10 h-72 bg-gradient-to-br from-amber-200 via-orange-100 to-emerald-100 blur-3xl"></div>
+
+        <div class="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10 lg:px-10">
+            <header class="mb-8 space-y-3">
+                <a href="{{ path('app_tag_index') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-ember">
+                    &larr; Tous les tags
+                </a>
+                <h1 class="text-3xl font-extrabold tracking-tight">Ajouter un tag</h1>
+                <p class="text-base leading-7 text-ink/70">
+                    Le slug sera genere automatiquement a partir du nom si tu le laisses vide.
+                </p>
+            </header>
+
+            <section class="rounded-[2rem] border border-black/5 bg-white p-8 shadow-[0_18px_60px_rgba(17,24,39,0.06)]">
+                {% include 'tag/_form.html.twig' with {submit_label: 'Creer le tag'} %}
+            </section>
+        </div>
+    </main>
+{% endblock %}

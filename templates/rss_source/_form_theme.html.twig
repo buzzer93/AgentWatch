@@ -1,0 +1,47 @@
+{% use 'form_div_layout.html.twig' %}
+
+{% block form_row -%}
+    {%- set row_class = 'space-y-2' -%}
+    <div class="{{ row_class }}">
+        {{- form_label(form) -}}
+        {{- form_widget(form) -}}
+        {{- form_help(form) -}}
+        {{- form_errors(form) -}}
+    </div>
+{%- endblock form_row %}
+
+{% block form_label -%}
+    {%- if label is not same as(false) -%}
+        {% set label_attr = label_attr|merge({class: (label_attr.class|default('') ~ ' block text-sm font-semibold text-ink')|trim}) %}
+        {{- parent() -}}
+    {%- endif -%}
+{%- endblock form_label %}
+
+{% block form_widget_simple -%}
+    {%- set type = type|default('text') -%}
+    {%- if type != 'checkbox' -%}
+        {% set attr = attr|merge({class: (attr.class|default('') ~ ' block w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm focus:border-ember focus:outline-none focus:ring-2 focus:ring-ember/30')|trim}) %}
+    {%- endif -%}
+    {{- parent() -}}
+{%- endblock form_widget_simple %}
+
+{% block textarea_widget -%}
+    {% set attr = attr|merge({class: (attr.class|default('') ~ ' block w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm focus:border-ember focus:outline-none focus:ring-2 focus:ring-ember/30')|trim}) %}
+    {{- parent() -}}
+{%- endblock textarea_widget %}
+
+{% block form_help -%}
+    {%- if help is not empty -%}
+        <p class="text-xs text-ink/60">{{ help|trans({}, translation_domain) }}</p>
+    {%- endif -%}
+{%- endblock form_help %}
+
+{% block form_errors -%}
+    {%- if errors|length > 0 -%}
+        <ul class="space-y-1 text-xs text-red-600">
+            {%- for error in errors -%}
+                <li>{{ error.message }}</li>
+            {%- endfor -%}
+        </ul>
+    {%- endif -%}
+{%- endblock form_errors %}

@@ -1,0 +1,18 @@
+{% form_theme form 'rss_source/_form_theme.html.twig' %}
+
+{{ form_start(form, {attr: {class: 'space-y-6'}}) }}
+    <div class="space-y-6">
+        {{ form_row(form.name) }}
+        {{ form_row(form.description) }}
+        {{ form_row(form.content) }}
+    </div>
+
+    <div class="flex flex-col-reverse gap-3 border-t border-black/5 pt-6 sm:flex-row sm:justify-end">
+        <a href="{{ path('app_prompt_index') }}" class="inline-flex items-center justify-center rounded-full border border-ink/15 px-5 py-2.5 text-sm font-semibold text-ink/80 transition hover:bg-ink/5">
+            Annuler
+        </a>
+        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-sand transition hover:bg-ink/90">
+            Enregistrer
+        </button>
+    </div>
+{{ form_end(form) }}

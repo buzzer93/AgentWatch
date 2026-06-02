@@ -1,0 +1,23 @@
+{
+	{$CADDY_GLOBAL_OPTIONS}
+
+	frankenphp
+}
+
+{$CADDY_EXTRA_CONFIG}
+
+{$SERVER_NAME:localhost} {
+	log {
+		{$CADDY_SERVER_LOG_OPTIONS}
+	}
+
+	root /app/public
+	encode zstd br gzip
+
+	{$CADDY_SERVER_EXTRA_DIRECTIVES}
+
+	# Mode classique : "php_server" route toute requête non-statique vers
+	# public/index.php et sert directement les fichiers statiques existants.
+	# (Pour passer en "worker mode" un jour, on remplacera cette ligne.)
+	php_server
+}

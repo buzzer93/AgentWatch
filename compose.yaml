@@ -1,5 +1,31 @@
 
 services:
+  php:
+    image: ${IMAGES_PREFIX:-}agentwatch-php
+    build:
+      context: .
+      target: frankenphp_dev
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ${SERVER_NAME:-localhost}
+      # Dans le réseau Docker, on joint les autres services par leur NOM
+      # (database, mailer, ollama) et non par 127.0.0.1.
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-16}&charset=utf8"
+      MAILER_DSN: smtp://mailer:1025
+      OLLAMA_BASE_URL: http://ollama:11434
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2019/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
 ###> doctrine/doctrine-bundle ###
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
@@ -17,9 +43,41 @@ services:
       - database_data:/var/lib/postgresql/data:rw
       # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
       # - ./docker/db/data:/var/lib/postgresql/data:rw
+
+  n8n:
+    image: n8nio/n8n:2.22.3
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: database
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-app}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-app}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
+      APP_INTERNAL_TOKEN: ${APP_INTERNAL_TOKEN:-change-this-token}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678}
+      GENERIC_TIMEZONE: ${N8N_TIMEZONE:-Europe/Paris}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  ollama:
+    image: ollama/ollama:0.9.0
+    volumes:
+      - ollama_data:/root/.ollama
 ###< doctrine/doctrine-bundle ###
 
 volumes:
+  caddy_data:
+  caddy_config:
 ###> doctrine/doctrine-bundle ###
   database_data:
+  n8n_data:
+  ollama_data:
 ###< doctrine/doctrine-bundle ###

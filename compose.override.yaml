@@ -1,17 +1,43 @@
 
 services:
+  php:
+    # Le code est monté en direct : tes modifications sont prises en compte
+    # sans reconstruire l'image.
+    volumes:
+      - ./:/app
+    environment:
+      # ":80" = HTTP pur, sans redirection HTTPS automatique de Caddy.
+      # Idéal en dev local. (En prod, on remet un vrai domaine pour le HTTPS auto.)
+      SERVER_NAME: ":80"
+      # Mets XDEBUG_MODE=debug pour activer le débogage pas-à-pas.
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
+    extra_hosts:
+      # Permet à Xdebug de joindre ton IDE sur la machine hôte.
+      - host.docker.internal:host-gateway
+    ports:
+      # http://localhost:8000  (cohérent avec ton DEFAULT_URI)
+      - "8000:80"
+
 ###> doctrine/doctrine-bundle ###
   database:
     ports:
-      - "5432"
+      - "5432:5432"
 ###< doctrine/doctrine-bundle ###
+
+  n8n:
+    ports:
+      - "5678:5678"
+
+  ollama:
+    ports:
+      - "11434:11434"
 
 ###> symfony/mailer ###
   mailer:
     image: axllent/mailpit
     ports:
-      - "1025"
-      - "8025"
+      - "1025:1025"
+      - "8025:8025"
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1

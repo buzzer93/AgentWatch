@@ -1,0 +1,29 @@
+.git/
+.github/
+.idea/
+.vscode/
+.claude/
+
+# Dépendances / artefacts régénérés dans l'image
+vendor/
+var/
+node_modules/
+public/assets/
+public/bundles/
+assets/vendor/
+
+# Fichiers locaux et secrets
+.env.local
+.env.*.local
+**/.DS_Store
+
+# Tests / qualité
+.phpunit.cache/
+phpunit.xml
+tests/
+
+# Docs et fichiers de dev inutiles en image
+*.md
+docs/
+n8n/
+scripts/

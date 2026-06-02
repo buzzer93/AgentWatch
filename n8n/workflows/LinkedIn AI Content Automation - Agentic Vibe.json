@@ -1,0 +1,950 @@
+{
+  "name": "LinkedIn AI Content Automation - Agentic Vibe",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 📥 RSS Collect\n\n**Quand** : daily 7h\n\nLit les sources RSS actives, normalise, filtre les < 24h, push en base (dédup URL + hash).\n\nDéclenche la branche d'analyse une seule fois (executeOnce sur Get Allowed Tags).",
+        "height": 1220,
+        "width": 904,
+        "color": 5
+      },
+      "id": "c816b5bc-933f-48ff-9f65-f828a1979d34",
+      "name": "Col RSS Collect",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        6464,
+        3296
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⚙️ Setup analyse\n\nFetch les tags autorisés (vocab. fermé) et les prompts depuis Symfony.\n\nGet Unprocessed Items pull **1 article** par tour de boucle (limit=1).",
+        "height": 920,
+        "width": 488,
+        "color": 3
+      },
+      "id": "72ce3b98-0659-4a8b-bafc-8fdecd4864b2",
+      "name": "Col Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        7376,
+        3296
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🧠 Étape 1 — Summary\n\nRésumé FR + catégorie + titre traduit.\n\nformat: json, think: false, num_predict 1200, temp 0.2.",
+        "height": 724,
+        "width": 488,
+        "color": 4
+      },
+      "id": "c81a0aec-8cd9-42c1-b333-741f0fe5c1f5",
+      "name": "Col Summary",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        7872,
+        3296
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🏷️ Étape 2 — Tags\n\nChoisit 2-6 slugs dans allowedTags à partir du summary.\n\nnum_predict 200, temp 0.2.",
+        "height": 724,
+        "width": 520,
+        "color": 4
+      },
+      "id": "51608e83-019b-415e-aafa-35638cb6a212",
+      "name": "Col Tags",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        8352,
+        3296
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📊 Étape 3 — Scoring\n\n5 scores 0-100 selon le profil Nicolas.\n\nPas de reasoning (optimisé pour la vitesse).\n\nnum_predict 400, temp 0.3.",
+        "height": 724,
+        "width": 504,
+        "color": 4
+      },
+      "id": "b82cc44f-13af-4322-92d7-bb9cc8842831",
+      "name": "Col Scoring",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        8864,
+        3296
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 💾 Push & loop\n\nPOST `/internal/ai-analysis` :\n- crée AiAnalysis\n- lie les tags (M2M)\n- marque isProcessed = true\n\nLoop back vers Get Unprocessed Items → drain queue jusqu'au vide.",
+        "height": 400,
+        "width": 872,
+        "color": 6
+      },
+      "id": "94320f48-2f96-4218-930f-e4d437d9a817",
+      "name": "Col Push & Loop",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        8032,
+        4064
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/internal/rss-sources",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{$env.APP_INTERNAL_TOKEN}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8731935f-5953-4624-8ad0-5c9f535de221",
+      "name": "Fetch Active Sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6656,
+        3680
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sources = $json.sources || [];\nreturn sources.map((source) => ({ json: source }));"
+      },
+      "id": "c3d2384a-f108-4005-acf1-bedae43c60c3",
+      "name": "Expand Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6656,
+        3872
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.feedUrl}}",
+        "options": {}
+      },
+      "id": "cd8553ed-8d2e-4824-9b97-19ccafa7bf63",
+      "name": "Read RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        6656,
+        4064
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item, index) => {\n  const rssItem = item.json;\n  const titleCandidate = rssItem.title || rssItem.creator || rssItem.guid || rssItem.link || 'Untitled';\n  const title = typeof titleCandidate === 'string' ? titleCandidate : String(titleCandidate);\n  const urlCandidate = rssItem.link || rssItem.guid || '';\n  const url = typeof urlCandidate === 'string' ? urlCandidate : String(urlCandidate);\n  const publishedAtRaw = rssItem.isoDate || rssItem.pubDate || null;\n  const publishedAt = publishedAtRaw instanceof Date ? publishedAtRaw.toISOString() : publishedAtRaw;\n\n  if (!url) {\n    return null;\n  }\n\n  const rawSourceId = $('Expand Sources').itemMatching(index).json.id;\n  const sourceId = Number.parseInt(String(rawSourceId), 10);\n\n  if (!Number.isFinite(sourceId)) {\n    return null;\n  }\n\n  const author = typeof rssItem.creator === 'string' ? rssItem.creator : null;\n  const rawExcerptCandidate = rssItem.contentSnippet || rssItem.summary || null;\n  const rawExcerpt = typeof rawExcerptCandidate === 'string' ? rawExcerptCandidate : null;\n  const rawContent = typeof rssItem.content === 'string' ? rssItem.content : null;\n\n  return {\n    json: {\n      sourceId,\n      title,\n      url,\n      author,\n      publishedAt: typeof publishedAt === 'string' ? publishedAt : null,\n      rawExcerpt,\n      rawContent,\n      language: null\n    }\n  };\n}).filter(Boolean);"
+      },
+      "id": "d647fc85-f2a6-4501-b5a8-88a06524e574",
+      "name": "Normalize Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6656,
+        4256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/internal/rss-items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{$env.APP_INTERNAL_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sourceId",
+              "value": "={{ $json.sourceId }}"
+            },
+            {
+              "name": "title",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "name": "url",
+              "value": "={{ $json.url }}"
+            },
+            {
+              "name": "author",
+              "value": "={{ $json.author }}"
+            },
+            {
+              "name": "publishedAt",
+              "value": "={{ $json.publishedAt }}"
+            },
+            {
+              "name": "rawExcerpt",
+              "value": "={{ $json.rawExcerpt }}"
+            },
+            {
+              "name": "rawContent",
+              "value": "={{ $json.rawContent }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $json.language }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "923dce1e-62f7-4aaa-a5d6-b557ce1e4900",
+      "name": "Push RSS Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7088,
+        4272
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d81f6023-8916-4e76-b856-25503cbbefb4",
+              "leftValue": "={{ DateTime.fromISO($json.publishedAt) }}",
+              "rightValue": "={{ $now.minus({ days: 1 }) }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        7088,
+        3504
+      ],
+      "id": "a6619539-2ad2-45ef-9c6c-8364b56bbc16",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            },
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "883cbf98-c01e-43c2-b902-da32408bd86a",
+      "name": "daily Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        6656,
+        3504
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/internal/tags",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{$env.APP_INTERNAL_TOKEN}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "43f9f562-04ce-470a-81df-b204434fc31c",
+      "name": "Get Allowed Tags",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7568,
+        3488
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/internal/prompts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{$env.APP_INTERNAL_TOKEN}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "20b9f24f-1f40-4d90-8cf8-c62178f6a1ff",
+      "name": "Get Prompts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7568,
+        3680
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/internal/rss-items/unprocessed",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{$env.APP_INTERNAL_TOKEN}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c0478dbf-022e-400e-876d-e84775f5fdc6",
+      "name": "Get Unprocessed Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7568,
+        3888
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $json.items || [];\nreturn items.map((item) => ({ json: item }));"
+      },
+      "id": "5bb3cd6f-77b7-4bb3-83e9-176bbdb57c3e",
+      "name": "Expand Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7568,
+        4080
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stripHtml = (s) => String(s || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\\s+/g, ' ').trim();\n\nreturn items.map((item) => {\n  const article = item.json;\n  const excerpt = stripHtml(article.rawExcerpt).slice(0, 800);\n  const content = stripHtml(article.rawContent).slice(0, 1500);\n\n  const userPrompt = [\n    `Title: ${article.title}`,\n    `Source: ${article.sourceName}`,\n    excerpt ? `Excerpt: ${excerpt}` : '',\n    content ? `Content: ${content}` : ''\n  ].filter(Boolean).join('\\n');\n\n  return {\n    json: {\n      itemId: article.id,\n      title: article.title,\n      sourceName: article.sourceName,\n      excerpt: excerpt,\n      content: content,\n      ollamaPayload: {\n        model: 'qwen3:4b',\n        messages: [\n          { role: 'system', content: (($('Get Prompts').first().json.prompts || []).find((p) => p.key === 'article_analysis_summary') || {}).content || '' },\n          { role: 'user', content: userPrompt }\n        ],\n        format: 'json',\n        stream: false,\n        think: false,\n        options: { \"temperature\": 0.2, \"num_predict\": 1200 }\n      }\n    }\n  };\n});"
+      },
+      "id": "33081a07-738c-4bf6-b403-63388d9a82dc",
+      "name": "Build Summary Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8064,
+        3488
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ollamaPayload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 600000
+        }
+      },
+      "id": "f173270c-f4f0-48c5-a8ff-15aeb80e8786",
+      "name": "Call Ollama (Summary)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        8064,
+        3680
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item, index) => {\n  const ollamaResponse = item.json;\n  const src = $('Build Summary Prompt').itemMatching(index).json;\n  let parsed;\n  try {\n    const raw = ollamaResponse?.message?.content;\n    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n  } catch (e) {\n    return null;\n  }\n  if (!parsed || typeof parsed !== 'object') return null;\n\n  return {\n    json: {\n      itemId: src.itemId,\n      title: src.title,\n      sourceName: src.sourceName,\n      excerpt: src.excerpt,\n      content: src.content,\n      translatedTitle: String(parsed.translatedTitle || '').slice(0, 500),\n      summary: String(parsed.summary || '').slice(0, 900)\n    }\n  };\n}).filter(Boolean);"
+      },
+      "id": "b08fb1bb-f86a-4610-8a0b-a40310b6feef",
+      "name": "Parse Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8064,
+        3872
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const tagsList = $('Get Allowed Tags').first().json.tags || [];\nconst allowedSlugs = tagsList.map((t) => t.slug).join(', ');\n\nreturn items.map((item) => {\n  const data = item.json;\n  const userPrompt = [\n    `Title: ${data.title}`,\n    `Source: ${data.sourceName}`,\n    `Summary: ${data.summary}`,\n    `allowedTags: ${allowedSlugs}`\n  ].join('\\n');\n\n  return {\n    json: {\n      ...data,\n      ollamaPayload: {\n        model: 'qwen3:4b',\n        messages: [\n          { role: 'system', content: (($('Get Prompts').first().json.prompts || []).find((p) => p.key === 'article_analysis_tags') || {}).content || '' },\n          { role: 'user', content: userPrompt }\n        ],\n        format: 'json',\n        stream: false,\n        think: false,\n        options: { num_predict: 200, temperature: 0.2 }\n      }\n    }\n  };\n});"
+      },
+      "id": "17008fb3-3d1e-4bdc-9353-f1aa5f44a440",
+      "name": "Build Tags Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8560,
+        3488
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ollamaPayload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 600000
+        }
+      },
+      "id": "a45f66f0-c19b-428f-bc42-4802c8e42d0c",
+      "name": "Call Ollama (Tags)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        8560,
+        3680
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item, index) => {\n  const ollamaResponse = item.json;\n  const src = $('Build Tags Prompt').itemMatching(index).json;\n  let parsed;\n  try {\n    const raw = ollamaResponse?.message?.content;\n    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n  } catch (e) {\n    return null;\n  }\n  if (!parsed || typeof parsed !== 'object') return null;\n\n  return {\n    json: {\n      itemId: src.itemId,\n      title: src.title,\n      sourceName: src.sourceName,\n      translatedTitle: src.translatedTitle,\n      summary: src.summary,\n      tags: Array.isArray(parsed.tags) ? parsed.tags.map((t) => String(t)) : []\n    }\n  };\n}).filter(Boolean);"
+      },
+      "id": "bbbf8035-f6d6-4ef6-83fb-b5ece6f65026",
+      "name": "Parse Tags",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8560,
+        3872
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item) => {\n  const data = item.json;\n  const userPrompt = [\n    `Profile: Nicolas Rodriguez, indie Symfony/PHP developer. Goals: improve Symfony/PHP/Docker/AI/automation skills, find freelance opportunities, generate LinkedIn content ideas.`,\n    `Title: ${data.title}`,\n    `Source: ${data.sourceName}`,\n    `Summary: ${data.summary}`,\n    `Tags: ${(data.tags || []).join(', ')}`\n  ].join('\\n');\n\n  return {\n    json: {\n      ...data,\n      ollamaPayload: {\n        model: 'qwen3:4b',\n        messages: [\n          { role: 'system', content: (($('Get Prompts').first().json.prompts || []).find((p) => p.key === 'article_analysis_scoring') || {}).content || '' },\n          { role: 'user', content: userPrompt }\n        ],\n        format: 'json',\n        stream: false,\n        think: false,\n        options: { num_predict: 400, temperature: 0.3 }\n      }\n    }\n  };\n});"
+      },
+      "id": "33587f80-9a2b-4e3c-9321-19e3054366da",
+      "name": "Build Scoring Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9072,
+        3488
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ollamaPayload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 600000
+        }
+      },
+      "id": "ce751a5a-e688-49ef-b951-888d031f3912",
+      "name": "Call Ollama (Scoring)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        9072,
+        3680
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const parseJsonLenient = (value) => {\n  if (value === null || value === undefined) return null;\n  if (typeof value === 'object') return value;\n  if (typeof value !== 'string') return null;\n\n  const text = value.trim();\n  if (text === '') return null;\n\n  try {\n    return JSON.parse(text);\n  } catch (e) {\n    // ignore\n  }\n\n  const fenceMatch = text.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);\n  if (fenceMatch && typeof fenceMatch[1] === 'string') {\n    const inner = fenceMatch[1].trim();\n    if (inner !== '') {\n      try {\n        return JSON.parse(inner);\n      } catch (e) {\n        // ignore\n      }\n    }\n  }\n\n  const objStart = text.indexOf('{');\n  const objEnd = text.lastIndexOf('}');\n  if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {\n    const slice = text.slice(objStart, objEnd + 1);\n    try {\n      return JSON.parse(slice);\n    } catch (e) {\n      // ignore\n    }\n  }\n\n  return null;\n};\n\nconst clamp = (value) => {\n  const n = Number.parseInt(String(value), 10);\n  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;\n};\n\nreturn items.map((item, index) => {\n  const ollamaResponse = item.json;\n  const src = $('Build Scoring Prompt').itemMatching(index).json;\n  const raw = ollamaResponse?.message?.content;\n  const parsed = parseJsonLenient(raw);\n  const parseOk = parsed && typeof parsed === 'object';\n\n  return {\n    json: {\n      rssItemId: src.itemId,\n      translatedTitle: src.translatedTitle,\n      summary: src.summary,\n      tags: src.tags || [],\n      relevanceScore: parseOk ? clamp(parsed.relevanceScore) : 0,\n      businessScore: parseOk ? clamp(parsed.businessScore) : 0,\n      learningScore: parseOk ? clamp(parsed.learningScore) : 0,\n      contentScore: parseOk ? clamp(parsed.contentScore) : 0,\n      finalScore: parseOk ? clamp(parsed.finalScore) : 0,\n      reasoning: parseOk\n        ? String(parsed.reasoning || '')\n        : `PARSE_ERROR: invalid JSON scoring output (first 500 chars): ${String(raw || '').slice(0, 500)}`,\n      modelUsed: 'qwen3:4b'\n    }\n  };\n});"
+      },
+      "id": "88f63e74-baa3-41b8-af54-34262de8ee54",
+      "name": "Parse + Merge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9072,
+        3872
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/internal/ai-analysis",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-Token",
+              "value": "={{$env.APP_INTERNAL_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "14671940-fea6-4419-876b-abf8d20ae9ed",
+      "name": "Push AI Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        8640,
+        4208
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "pageHtml"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "e8b97854-899e-4237-9a9f-4de4f857141a",
+      "name": "Fetch Article HTML1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7088,
+        3696
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "dataPropertyName": "pageHtml",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "articleText",
+              "cssSelector": "article",
+              "skipSelectors": "nav, header, footer, script, style, form"
+            },
+            {
+              "key": "mainText",
+              "cssSelector": "main",
+              "skipSelectors": "nav, header, footer, script, style, form"
+            },
+            {
+              "key": "bodyText",
+              "cssSelector": "body",
+              "skipSelectors": "nav, header, footer, script, style, form"
+            }
+          ]
+        },
+        "options": {
+          "trimValues": true,
+          "cleanUpText": true
+        }
+      },
+      "id": "56d8cb4a-08de-468d-9c5c-e98ca21725ee",
+      "name": "Extract Article Content1",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        7088,
+        3888
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const pickFirstText = (...values) => {\n  for (const value of values) {\n    if (typeof value === 'string' && value.trim() !== '') {\n      return value.trim();\n    }\n  }\n\n  return null;\n};\n\nreturn items.map((item, index) => {\n  const original = $('Filter').itemMatching(index).json;\n  const extracted = pickFirstText(item.json.articleText, item.json.mainText, item.json.bodyText);\n\n  const rawContent = extracted && extracted.length >= 400 ? extracted : original.rawContent;\n\n  let rawExcerpt = original.rawExcerpt;\n  if (typeof rawExcerpt !== 'string' || rawExcerpt.trim() === '') {\n    rawExcerpt = typeof rawContent === 'string' && rawContent.trim() !== ''\n      ? rawContent.trim().slice(0, 280)\n      : null;\n  }\n\n  return {\n    json: {\n      ...original,\n      rawContent,\n      rawExcerpt,\n    },\n  };\n});"
+      },
+      "id": "b451063e-7309-487d-a193-4b6acc6430b7",
+      "name": "Apply Full Content1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7088,
+        4080
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Fetch Active Sources": {
+      "main": [
+        [
+          {
+            "node": "Expand Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Sources": {
+      "main": [
+        [
+          {
+            "node": "Read RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read RSS": {
+      "main": [
+        [
+          {
+            "node": "Normalize Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Items": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push RSS Item": {
+      "main": [
+        [
+          {
+            "node": "Get Allowed Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article HTML1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Allowed Tags": {
+      "main": [
+        [
+          {
+            "node": "Get Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Prompts": {
+      "main": [
+        [
+          {
+            "node": "Get Unprocessed Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unprocessed Items": {
+      "main": [
+        [
+          {
+            "node": "Expand Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Items": {
+      "main": [
+        [
+          {
+            "node": "Build Summary Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call Ollama (Summary)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Ollama (Summary)": {
+      "main": [
+        [
+          {
+            "node": "Parse Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Tags Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Tags Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call Ollama (Tags)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Ollama (Tags)": {
+      "main": [
+        [
+          {
+            "node": "Parse Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Tags": {
+      "main": [
+        [
+          {
+            "node": "Build Scoring Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Scoring Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call Ollama (Scoring)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Ollama (Scoring)": {
+      "main": [
+        [
+          {
+            "node": "Parse + Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Merge": {
+      "main": [
+        [
+          {
+            "node": "Push AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Get Unprocessed Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article HTML1": {
+      "main": [
+        [
+          {
+            "node": "Extract Article Content1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Article Content1": {
+      "main": [
+        [
+          {
+            "node": "Apply Full Content1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Full Content1": {
+      "main": [
+        [
+          {
+            "node": "Push RSS Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d2d53968-9982-43c5-89ef-7c4803dfd61c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "049dd11bbfe4cd0300bf1914052c2fcd04640252d0e5a4e7c4ce3fcbda70c406"
+  },
+  "id": "g1MHd4vMuwy7JNd7",
+  "tags": []
+}
